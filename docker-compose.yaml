@@ -20,7 +20,7 @@ services:
       - ./letsencrypt:/letsencrypt
 
   frontend:
-    image: ghcr.io/osadchiyandrey/domains-app-frontend:latest
+    image: ghcr.io/osadchiyandrey/domains-frontend:latest
     pull_policy: always
     environment:
       BACKEND_HOST: ${SERVER_ORIGIN}
