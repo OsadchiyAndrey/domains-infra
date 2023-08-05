@@ -1,0 +1,72 @@
+version: '3.9'
+
+services:
+  reverse-proxy:
+    image: traefik:v2.9
+    container_name: traefik
+    command: >
+      --providers.docker
+      --providers.docker.exposedByDefault=false
+      --entrypoints.web.address=:80
+      --entrypoints.websecure.address=:443
+      --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+      --certificatesresolvers.letsencrypt.acme.storage=${ACME_STORAGE_PATH}
+      --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+
+  frontend:
+    image: ghcr.io/osadchiyandrey/domains-app-frontend:latest
+    pull_policy: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend-http.entrypoints=web"
+      - "traefik.http.routers.frontend-http.rule=Host(`${SERVER_ORIGIN}`)"
+      - "traefik.http.routers.frontend-http.middlewares=frontend-https"
+
+      - "traefik.http.middlewares.frontend-https.redirectscheme.scheme=https"
+
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.rule=Host(`${SERVER_ORIGIN}`)"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+
+  backend:
+    image: ghcr.io/osadchiyandrey/domains-app:latest
+    pull_policy: always
+    environment:
+      GOOGLE_CLOUD_CONFIG: ${GOOGLE_CLOUD_CONFIG}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SCHEMA: ${DB_SCHEMA}
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY}
+      WEBHOOK_URL: ${WEBHOOK_URL}
+
+    depends_on:
+      - db
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.rule=Host(`${SERVER_ORIGIN}`) && PathPrefix(`/api`, `/swagger-ui/`,`/v2/api-docs`, `/{swagger:swagger.*}`)"
+      - "traefik.http.routers.backend.tls=true"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+  db:
+    image: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      - MYSQL_DATABASE=${DB_SCHEMA}
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+volumes:
+  mysql-data:
+
+networks:
+  default:
+    name: traefik
+    external: true
