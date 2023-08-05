@@ -22,6 +22,8 @@ services:
   frontend:
     image: ghcr.io/osadchiyandrey/domains-app-frontend:latest
     pull_policy: always
+    environment:
+      BACKEND_HOST: ${SERVER_ORIGIN}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend-http.entrypoints=web"
@@ -39,7 +41,7 @@ services:
     image: ghcr.io/osadchiyandrey/domains-app:latest
     pull_policy: always
     environment:
-      GOOGLE_CLOUD_CONFIG: ${GOOGLE_CLOUD_CONFIG}
+      SERVER_ORIGIN: ${SERVER_ORIGIN}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_SCHEMA: ${DB_SCHEMA}
